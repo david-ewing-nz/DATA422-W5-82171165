@@ -25,6 +25,8 @@ if (!require(rvest))     install.packages("rvest", dependencies = TRUE)
 if (!require(xml2))      install.packages("xml2", dependencies = TRUE)
 if (!require(purrr))     install.packages("purrr", dependencies = TRUE)
 if (!require(lubridate)) install.packages("lubridate", dependencies = TRUE)
+if (!require(knitr)) install.packages("knitr", dependencies = TRUE)
+if (!require(kableExtra)) install.packages("kableExtra", dependencies = TRUE)
 
 # Load  libraries
 library(tidyverse)
@@ -32,6 +34,8 @@ library(rvest)     #web scraping
 library(xml2)
 library(purrr)
 library(lubridate) #dates/times
+library(knitr)
+library(kableExtra)
 
 
 #tinytex::tinytex_root() don't use tinytext 
@@ -133,7 +137,7 @@ urls <- paste0(url2, 1:5)
 urls
 ```
 
-```{r the-real-thing, include=TRUE, echo=TRUE}
+```{r the-real-thing, include=TRUE, echo=FALSE}
 # https://www.trustpilot.com/review/ubereats.com. This is a website of reviews
 # pertaining to Uber Eats. In this example you should successfully scrape the 
 # reviews, the reviewer, date of review, number of stars for the corresponding 
@@ -196,6 +200,26 @@ scrape_url <- function(url) {
 }
 
 all_results <- map_dfr(urls, scrape_url)
-print(all_results)
+all_results <- all_results %>%
+  rename(
+    Title = title,               # Rename 'title' to 'Title'
+    Reviewer = reviewer,               # Rename 'title' to 'Title'
+    Date = date,               # Rename 'title' to 'Title'
+    Stars = stars,               # Rename 'title' to 'Title'
+    `Review Text` = review_text  # Rename 'review_text' to 'Review Text'
+  )
+```
+
+```{r conditional-output, echo=FALSE}
+if (knitr::is_html_output()) {
+  # Code specific to HTML output
+  kable(all_results, "html") %>%
+    kable_styling(full_width = FALSE, bootstrap_options = c("striped", "bordered"))
+} else if (knitr::is_latex_output()) {
+  # Code specific to PDF output
+  kable(all_results, "latex") %>%
+    kable_styling(latex_options = c("striped", "hold_position"))
+}
+
 ```
 
