@@ -1,0 +1,201 @@
+---
+title: "Week 5 - Web Scraping"
+author: "David Ewing"
+date: "2024-08-12"
+format: 
+  html:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+  pdf:
+    toc: true
+    number_sections: true
+    latex_engine: xelatex
+    header-includes:
+      - \usepackage{placeins}
+      - \usepackage{afterpage}
+---
+
+------------------------------------------------------------------------
+
+```{r setup, echo=FALSE, message=FALSE}
+# Install package and dependencies if not already installed
+if (!require(tidyverse)) install.packages("tidyverse", dependencies = TRUE)
+if (!require(rvest))     install.packages("rvest", dependencies = TRUE)
+if (!require(xml2))      install.packages("xml2", dependencies = TRUE)
+if (!require(purrr))     install.packages("purrr", dependencies = TRUE)
+if (!require(lubridate)) install.packages("lubridate", dependencies = TRUE)
+
+# Load  libraries
+library(tidyverse)
+library(rvest)     #web scraping
+library(xml2)
+library(purrr)
+library(lubridate) #dates/times
+
+
+#tinytex::tinytex_root() don't use tinytext 
+```
+
+# Overview: - Web Scraping
+
+```{r web-pages, include=TRUE, echo=FALSE}
+# web scraping via rvest package 
+# URL of the first page of Uber Eats reviews on Trustpilot
+link <- "https://nz.trustpilot.com/review/ubereats.com"
+         
+# Parse the HTML content of the page
+page <- read_html(link)
+
+# View the structure of the HTML
+# html_structure(page)
+
+url2 <- paste0(link, "?page=")
+urls <- paste0(url2, 1:5)
+
+#All pages are captured in urls (loop)
+
+```
+
+```{r deebug_values, include=FALSE}
+#Common for the reviews:
+key_title    =     "h2.typography_heading-s__f7029.typography_appearance-default__AAY17"
+key_reviewer = "span.typography_heading-xxs__QKBS8.typography_appearance-default__AAY17"
+key_date     =         "p.typography_body-m__xgxZ_.typography_appearance-default__AAY17"
+key_text     =         "p.typography_body-l__KUYFJ.typography_appearance-default__AAY17.typography_color-black__5LYEn"
+
+#<p class="typography_body-m__xgxZ_ typography_appearance-default__AAY17" #data-service-review-date-of-experience-typography="true"><b class="typography_body-m__xgxZ_ typography_appearance-default__AAY17 #typography_weight-heavy__E1LTj" weight="heavy">Date of experience<!-- -->:</b> <!-- -->August 10, 2024</p>
+
+#<p class="typography_body-m__xgxZ_ typography_appearance-default__AAY17" data-service-review-date-of-experience-typography="true"><b class="typography_body-m__xgxZ_ typography_appearance-default__AAY17 typography_weight-heavy__E1LTj" weight="heavy">Date of experience<!-- -->:</b> <!-- -->10 August 2024</p>
+
+titles <- page %>% 
+  html_elements("h3")
+
+titles <- page %>% 
+  html_elements("h3") %>% 
+  html_text2()
+
+titles <- page %>%
+  html_elements("h3") %>%
+  html_elements("a") 
+
+titles <- page %>%
+  html_elements("h3") %>%
+  html_elements("a") %>%
+  html_attr("title")
+
+titles <- page %>%
+  html_elements(key_title) %>%  # Target the h2 tag with both classes
+  html_text(trim = TRUE)
+ titles <- titles[!is.na(titles)] 
+head(titles)
+
+reviewers <- page %>%
+    html_elements(key_reviewer) %>%
+    html_text(trim = TRUE)
+reviewers <- reviewers[!is.na(reviewers)]
+head(reviewers)
+  
+review_dates <- page %>%
+  html_elements(key_date) %>%  # Select the correct <p> element
+  html_text(trim = TRUE) %>%  # Extract the full text
+  str_extract("(?<=Date of experience: ).*")  # Extract the part after "Date of experience:"
+review_dates <- review_dates[!is.na(review_dates)] %>% dmy()
+
+head(review_dates)
+ 
+ 
+
+review_texts <- page %>%
+    html_elements(key_text) %>%  
+    html_text(trim = TRUE)
+head(review_texts)
+
+ ratings <- page %>%
+    html_elements("img") %>%  # Select all <img> tags
+    html_attr("alt") %>%  # Extract the 'alt' attribute
+    str_extract("(?<=Rated )\\d(?= out of 5 stars)") %>%  # Extract the numeric rating
+    as.integer()  # Convert to integer 
+ratings <- ratings[!is.na(ratings)]
+ 
+results <- tibble(
+    title = titles,
+    reviewer = reviewers,
+    date = review_dates,
+    stars = ratings,
+    review_text = review_texts
+  ) 
+print(results)
+
+
+url2 <- paste0(link, "?page=")
+urls <- paste0(url2, 1:5)
+urls
+```
+
+```{r the-real-thing, include=TRUE, echo=TRUE}
+# https://www.trustpilot.com/review/ubereats.com. This is a website of reviews
+# pertaining to Uber Eats. In this example you should successfully scrape the 
+# reviews, the reviewer, date of review, number of stars for the corresponding 
+# review, and the title of the review. We will supply you with some helper 
+# functions to deal with messy strings. After you have successfully scraped 
+# these elements, need to automate the process and scrape five pages. 
+# This will require you to use a for-loop, the string pasting method paste0.
+
+#keys for scrape the web page
+key_title    =     "h2.typography_heading-s__f7029.typography_appearance-default__AAY17"
+key_reviewer = "span.typography_heading-xxs__QKBS8.typography_appearance-default__AAY17"
+key_date     =         "p.typography_body-m__xgxZ_.typography_appearance-default__AAY17"
+key_text     =         "p.typography_body-l__KUYFJ.typography_appearance-default__AAY17.typography_color-black__5LYEn"
+
+scrape_url <- function(url) {
+  page <- read_html(url)
+  
+  # Extracted Titles
+ titles <- page %>%
+  html_elements(key_title) %>%  # Target the h2 tag with both classes
+  html_text(trim = TRUE)
+ titles <- titles[!is.na(titles)] 
+  
+  # Extracted Reviewers
+ reviewers <- page %>%
+    html_elements(key_reviewer) %>%
+    html_text(trim = TRUE)
+ reviewers <- reviewers[!is.na(reviewers)]
+  
+  # Extracted Dates
+  review_dates <- page %>%
+    html_elements(key_date) %>%  # Select the correct <p> element
+    html_text(trim = TRUE) %>%  # Extract the full text
+    str_extract("(?<=Date of experience: ).*")  # Extract the part after "Date of experience:"
+  review_dates <- review_dates[!is.na(review_dates)] %>% dmy()
+  
+  # Extracted Stars
+  ratings <- page %>%
+    html_elements("img") %>%  # Select <img> tags
+    html_attr("alt") %>%  # Extract 'alt' attribute
+    str_extract("(?<=Rated )\\d(?= out of 5 stars)") %>%  # extract star num as char
+    as.integer()  # now as integer 
+  ratings <- ratings[!is.na(ratings)] # now without NA
+  
+  # Extracted Text 
+  review_texts <- page %>%
+    html_elements(key_text) %>%  
+    html_text(trim = TRUE)
+  
+  # Datafraome
+  results <- tibble(
+    title = titles,
+    reviewer = reviewers,
+    date = review_dates,
+    stars = ratings,
+    review_text = review_texts
+  )
+  
+  return(results) # for one page
+}
+
+all_results <- map_dfr(urls, scrape_url)
+print(all_results)
+```
+
